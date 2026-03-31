@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body style="margin:0; padding:30px; background:#f3f4f6; font-family:sans-serif;">
+
+<div style="max-width:500px; margin:auto; background:#fff; border-radius:12px; padding:25px;">
+
+    <h2 style="text-align:center; color:#111;">
+        Advance Request Status
+    </h2>
+
+    <!-- STATUS BADGE -->
+    <div style="text-align:center; margin:20px 0;">
+        <span class="{{ 'approved' if status == 'APPROVED ✅' else 'rejected' }}">
+    {{ status }}
+    </span>
+    </div>
+
+    <hr>
+
+    <p><b>Entry No:</b> {{ entryno }}</p>
+    <p><b>Name:</b> {{ name }}</p>
+    <p><b>Department:</b> {{ dept }}</p>
+    <p><b>Employee Code:</b> {{ empid }}</p>
+
+    <p style="margin-top:10px;">
+        <b>Amount:</b> 
+        <span style="color:green; font-weight:bold;">
+            ₹{{ amt }}
+        </span>
+    </p>
+
+    <p><b>Remarks:</b> {{ remarks }}</p>
+
+    <hr>
+
+    <p style="text-align:center; font-size:12px; color:#999;">
+        This is system generated mail
+    </p>
+
+</div>
+
+</body>
+</html>
