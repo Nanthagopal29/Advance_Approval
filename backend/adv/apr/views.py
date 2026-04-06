@@ -14,6 +14,8 @@ from django.utils.html import strip_tags
 import requests
 import traceback
 from email.mime.image import MIMEImage
+import threading
+from django.core.cache import cache
 
 
 # ==========================================
@@ -201,7 +203,7 @@ def request_advance(request):
                     subject,
                     message,
                     settings.EMAIL_HOST_USER,   # from email
-                    ['manager@email.com'],     # 👈 change to real email
+                    ['kirsh650@email.com'],     # 👈 change to real email
                     fail_silently=False,
                 )
 
@@ -239,40 +241,65 @@ def request_advance(request):
             return JsonResponse({"error": str(e)}, status=500)
 
 # views.py — Add this new view
+# ==============================
+# 🔥 BACKGROUND EMAIL SENDER
+# ==============================
+def send_mail_async(email):
+    try:
+        email.send()
+        print("✅ Email sent in background")
+    except Exception as e:
+        print("❌ Email failed:", str(e))
+
+
+# ==============================
+# 🔥 EMPLOYEE CACHE (5 mins)
+# ==============================
+def get_employee_data(api_url):
+    cache_key = "employee_data"
+
+    data = cache.get(cache_key)
+    if not data:
+        try:
+            response = requests.get(api_url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                cache.set(cache_key, data, timeout=300)  # 5 mins
+        except Exception as e:
+            print("⚠️ API ERROR:", str(e))
+            data = []
+
+    return data
+
+
+# ==============================
+# 🔥 FAST LOOKUP
+# ==============================
+def get_employee_map(employees):
+    return {str(emp.get('code')).strip(): emp for emp in employees}
+
 
 @csrf_exempt
 def send_advance_mail(request):
     if request.method == 'POST':
         try:
-            print("\n===== 🚀 MAIL API START =====")
+            print("\n===== 🚀 FAST MAIL API START =====")
 
             data = json.loads(request.body)
             entryno = data.get('entryno')
 
-            obj = Adreq.objects.get(entryno=entryno)
+            # 🔹 OPTIMIZED DB QUERY
+            obj = Adreq.objects.only('empid', 'amt', 'remarks').get(entryno=entryno)
 
-            # 🔹 API CALL
+            # 🔹 API CACHE
             api_url = "https://app.herofashion.com/incentive/api/emp/"
-            emp_name = "Not Found"
-            emp_dept = "Not Found"
-            photo_name = None
+            employees = get_employee_data(api_url)
+            emp_map = get_employee_map(employees)
 
-            try:
-                api_response = requests.get(api_url, timeout=5)
-                if api_response.status_code == 200:
-                    employees = api_response.json()
-
-                    for emp in employees:
-                        if str(emp.get('code')).strip() == str(obj.empid).strip():
-                            emp_name = emp.get('name')
-                            emp_dept = emp.get('dept')
-                            photo_name = emp.get('photo')
-                            break
-            except Exception as api_err:
-                print("⚠️ API ERROR:", str(api_err))
-
-            print("EMP:", emp_name)
-            print("PHOTO NAME:", photo_name)
+            emp = emp_map.get(str(obj.empid).strip(), {})
+            emp_name = emp.get('name', 'Not Found')
+            emp_dept = emp.get('dept', 'Not Found')
+            photo_name = emp.get('photo')
 
             # 🔥 EMAIL OBJECT
             email = EmailMultiAlternatives(
@@ -282,29 +309,21 @@ def send_advance_mail(request):
                 ['kirsh650@gmail.com'],
             )
 
-            # 🔥 IMAGE ATTACH (CID)
+            # 🔥 IMAGE ATTACH (optional)
             photo_cid = None
-
             if photo_name:
-                filename = os.path.basename(photo_name)
-                local_path = os.path.join(settings.STAFF_IMAGES_ROOT, filename)
+                try:
+                    filename = os.path.basename(photo_name)
+                    local_path = os.path.join(settings.STAFF_IMAGES_ROOT, filename)
 
-                print("IMAGE PATH:", local_path)
-                print("FILE EXISTS:", os.path.exists(local_path))
-
-                if os.path.exists(local_path):
-                    with open(local_path, "rb") as f:
-                        img = MIMEImage(f.read())
-
-                        photo_cid = f"photo_{obj.empid}"
-                        img.add_header("Content-ID", f"<{photo_cid}>")
-                        img.add_header("Content-Disposition", "inline", filename=filename)
-
-                        email.attach(img)
-
-                        print("✅ IMAGE ATTACHED:", photo_cid)
-                else:
-                    print("❌ IMAGE NOT FOUND → fallback will be used")
+                    if os.path.exists(local_path):
+                        with open(local_path, "rb") as f:
+                            img = MIMEImage(f.read())
+                            photo_cid = f"photo_{obj.empid}"
+                            img.add_header("Content-ID", f"<{photo_cid}>")
+                            email.attach(img)
+                except Exception as e:
+                    print("⚠️ Image error:", str(e))
 
             # 🔹 TEMPLATE
             html_content = render_to_string('mail.html', {
@@ -313,8 +332,8 @@ def send_advance_mail(request):
                 'empid': obj.empid,
                 'amt': obj.amt,
                 'remarks': obj.remarks,
-                'approve_url': f"http://10.1.21.13:8100/approve?entryno={obj.entryno}&status=Y",
-                'reject_url': f"http://10.1.21.13:8100/approve?entryno={obj.entryno}&status=N",
+                'approve_url': f"http://10.1.21.13:8100/approve?entryno={entryno}&status=Y",
+                'reject_url': f"http://10.1.21.13:8100/approve?entryno={entryno}&status=N",
                 'photo_cid': photo_cid
             })
 
@@ -323,16 +342,13 @@ def send_advance_mail(request):
             email.body = text_content
             email.attach_alternative(html_content, "text/html")
 
-            result = email.send()
-            print("📧 MAIL SENT:", result)
+            # 🔥 BACKGROUND SEND
+            threading.Thread(target=send_mail_async, args=(email,)).start()
 
-            print("===== ✅ DONE =====\n")
-
-            return JsonResponse({"message": "Mail sent successfully"})
+            return JsonResponse({"message": "Mail queued (fast 🚀)"})
 
         except Exception as e:
             print("❌ ERROR:", str(e))
-            traceback.print_exc()
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
@@ -342,95 +358,54 @@ def send_advance_mail(request):
 def send_approval_mail(request):
     if request.method == 'POST':
         try:
-            print("✅ APPROVAL MAIL API CALLED")
-
             data = json.loads(request.body)
             entryno = data.get('entryno')
             status = data.get('status')
 
-            print("ENTRYNO:", entryno)
-            print("STATUS:", status)
+            # 🔹 FAST DB
+            obj = Adreq.objects.only('empid', 'amt', 'remarks').get(entryno=entryno)
 
-            # 🔹 1. Get DB record
-            obj = Adreq.objects.get(entryno=entryno)
-
-            # 🔹 2. Fetch employee data (SAFE)
+            # 🔹 CACHE API
             api_url = "http://10.1.21.13:8600/empwisesal/"
-            emp_name = "Not Found"
-            emp_dept = "Not Found"
+            employees = get_employee_data(api_url)
+            emp_map = get_employee_map(employees)
 
-            try:
-                api_response = requests.get(api_url, timeout=5)
-                if api_response.status_code == 200:
-                    employees = api_response.json()
-                    for emp in employees:
-                        if str(emp.get('code')).strip() == str(obj.empid).strip():
-                            emp_name = emp.get('name')
-                            emp_dept = emp.get('dept')
-                            break
-            except Exception as api_err:
-                print("⚠️ Employee API Failed:", str(api_err))
+            emp = emp_map.get(str(obj.empid).strip(), {})
+            emp_name = emp.get('name', 'Not Found')
+            emp_dept = emp.get('dept', 'Not Found')
 
-            # 🔹 3. Status text
             status_text = "APPROVED ✅" if status == "Y" else "REJECTED ❌"
+
             subject = f"Advance Request {status_text}"
 
-            # 🔹 4. HTML Template (SAFE FALLBACK)
-            try:
-                html_content = render_to_string('app.html', {
-                    'name': emp_name,
-                    'dept': emp_dept,
-                    'empid': obj.empid,
-                    'amt': obj.amt,
-                    'remarks': obj.remarks,
-                    'status': status_text,
-                    'entryno': obj.entryno,
-                })
-            except Exception as template_err:
-                print("⚠️ TEMPLATE ERROR:", str(template_err))
-
-                # fallback simple template
-                html_content = f"""
-                <h2>Advance Request {status_text}</h2>
-                <p><b>Employee:</b> {emp_name}</p>
-                <p><b>Department:</b> {emp_dept}</p>
-                <p><b>Amount:</b> ₹{obj.amt}</p>
-                <p><b>Remarks:</b> {obj.remarks}</p>
-                <p><b>Entry No:</b> {obj.entryno}</p>
-                """
+            html_content = render_to_string('app.html', {
+                'name': emp_name,
+                'dept': emp_dept,
+                'empid': obj.empid,
+                'amt': obj.amt,
+                'remarks': obj.remarks,
+                'status': status_text,
+                'entryno': obj.entryno,
+            })
 
             text_content = strip_tags(html_content)
 
-            # 🔹 5. SEND EMAIL
-            try:
-                email = EmailMultiAlternatives(
-                    subject,
-                    text_content,
-                    settings.EMAIL_HOST_USER,
-                    ['kirsh650@gmail.com', 'designervishwa10@gmail.com'],
-                )
+            email = EmailMultiAlternatives(
+                subject,
+                text_content,
+                settings.EMAIL_HOST_USER,
+                ['kirsh650@gmail.com', 'designervishwa10@gmail.com'],
+            )
 
-                email.attach_alternative(html_content, "text/html")
+            email.attach_alternative(html_content, "text/html")
 
-                result = email.send()
-                print("📧 MAIL SENT RESULT:", result)
+            # 🔥 BACKGROUND SEND
+            threading.Thread(target=send_mail_async, args=(email,)).start()
 
-                if result == 0:
-                    return JsonResponse({"error": "Mail not sent"}, status=500)
-
-            except Exception as mail_err:
-                print("❌ MAIL ERROR:", str(mail_err))
-                traceback.print_exc()
-                return JsonResponse({"error": str(mail_err)}, status=500)
-
-            return JsonResponse({"message": "Approval mail sent successfully"})
-
-        except Adreq.DoesNotExist:
-            return JsonResponse({"error": "Record not found"}, status=404)
+            return JsonResponse({"message": "Approval mail queued 🚀"})
 
         except Exception as e:
-            print("❌ GENERAL ERROR:", str(e))
-            traceback.print_exc()
+            print("ERROR:", e)
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)

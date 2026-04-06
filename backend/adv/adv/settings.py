@@ -184,7 +184,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = 'herofashion3@gmail.com'
-EMAIL_HOST_PASSWORD = 'yucr cjtb avki fczc'   # NOT normal password
+EMAIL_HOST_USER = 'hfautomation2026@gmail.com'
+EMAIL_HOST_PASSWORD = 'tmiy sjdd vbon omsd'   # NOT normal password
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

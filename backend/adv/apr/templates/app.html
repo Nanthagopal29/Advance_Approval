@@ -1,47 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
+<body style="margin:0; padding:0; background-color:#f3f4f6; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
-<body style="margin:0; padding:30px; background:#f3f4f6; font-family:sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 10px;">
+    <tr>
+        <td align="center">
+            
+            <table width="450" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                
+                <tr>
+                    <td align="center" style="padding: 35px 20px; 
+                        {% if status == 'APPROVED ✅' %} background-color:#10b981; 
+                        {% elif status == 'REJECTED ❌' %} background-color:#ef4444; 
+                        {% else %} background-color:#6366f1; {% endif %}">
+                        <div style="text-transform: uppercase; letter-spacing: 1px; font-size: 12px; color: rgba(255,255,255,0.8); font-weight: bold; margin-bottom: 8px;">
+                            Request Update
+                        </div>
+                        <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight: 800;">Advance Request</h1>
+                        <p style="margin:10px 0 0; color:rgba(255,255,255,0.9); font-size:13px; font-family: monospace;">
+                            Entry No: {{ entryno }}
+                        </p>
+                    </td>
+                </tr>
 
-<div style="max-width:500px; margin:auto; background:#fff; border-radius:12px; padding:25px;">
+                <tr>
+                    <td style="padding: 30px;">
+                        
+                        <div style="text-align: center; margin-bottom: 30px; border-bottom: 1px solid #f3f4f6; padding-bottom: 25px;">
+                            <span style="font-size: 13px; color: #6b7280; display: block; margin-bottom: 5px; font-weight: 600; text-transform: uppercase;">Total Amount</span>
+                            <span style="font-size: 42px; font-weight: 800; color: #111827;">₹{{ amt }}</span>
+                        </div>
 
-    <h2 style="text-align:center; color:#111;">
-        Advance Request Status
-    </h2>
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td width="50%" style="padding-bottom: 20px;">
+                                    <div style="font-size:11px; color:#9ca3af; text-transform: uppercase; font-weight: 700;">Employee Name</div>
+                                    <div style="font-size:15px; font-weight:600; color:#374151; margin-top: 4px;">{{ name }}</div>
+                                </td>
+                                <td width="50%" style="padding-bottom: 20px;">
+                                    <div style="font-size:11px; color:#9ca3af; text-transform: uppercase; font-weight: 700;">Employee ID</div>
+                                    <div style="font-size:15px; font-weight:600; color:#374151; margin-top: 4px;">{{ empid }}</div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="padding-bottom: 20px;">
+                                    <div style="font-size:11px; color:#9ca3af; text-transform: uppercase; font-weight: 700;">Department</div>
+                                    <div style="font-size:15px; font-weight:600; color:#374151; margin-top: 4px;">{{ dept }}</div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="background: #f9fafb; padding: 15px; border-radius: 12px; border: 1px solid #f3f4f6;">
+                                    <div style="font-size:11px; color:#9ca3af; text-transform: uppercase; font-weight: 700; margin-bottom: 6px;">Admin Remarks</div>
+                                    <div style="font-size:14px; color:#4b5563; line-height: 1.5;">
+                                        {% if remarks %}
+                                            {{ remarks }}
+                                        {% else %}
+                                            <span style="color:#9ca3af; font-style: italic;">No specific remarks provided.</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
 
-    <!-- STATUS BADGE -->
-    <div style="text-align:center; margin:20px 0;">
-        <span class="{{ 'approved' if status == 'APPROVED ✅' else 'rejected' }}">
-    {{ status }}
-    </span>
-    </div>
+                    </td>
+                </tr>
 
-    <hr>
+                <tr>
+                    <td style="padding: 0 30px 40px; text-align: center;">
+                        <div style="display: inline-block; padding: 14px 32px; border-radius: 50px; font-weight: 700; font-size: 14px; 
+                            {% if status == 'APPROVED ✅' %} background-color:#ecfdf5; color:#059669; border: 1px solid #10b981;
+                            {% else %} background-color:#fef2f2; color:#dc2626; border: 1px solid #f87171; {% endif %}">
+                            Status: {{ status }}
+                        </div>
+                    </td>
+                </tr>
 
-    <p><b>Entry No:</b> {{ entryno }}</p>
-    <p><b>Name:</b> {{ name }}</p>
-    <p><b>Department:</b> {{ dept }}</p>
-    <p><b>Employee Code:</b> {{ empid }}</p>
+                <tr>
+                    <td align="center" style="padding: 20px; background: #f9fafb; border-top: 1px solid #f3f4f6;">
+                        <p style="font-size:12px; color:#9ca3af; margin:0;">
+                            Generated by <strong>HR Automations</strong>
+                        </p>
+                    </td>
+                </tr>
+            </table>
 
-    <p style="margin-top:10px;">
-        <b>Amount:</b> 
-        <span style="color:green; font-weight:bold;">
-            ₹{{ amt }}
-        </span>
-    </p>
+            <p style="text-align:center; font-size:12px; color:#9ca3af; margin-top:25px;">
+                If you have questions, please contact the finance department.<br>
+                &copy; 2024 Your Company Name
+            </p>
 
-    <p><b>Remarks:</b> {{ remarks }}</p>
-
-    <hr>
-
-    <p style="text-align:center; font-size:12px; color:#999;">
-        This is system generated mail
-    </p>
-
-</div>
+        </td>
+    </tr>
+</table>
 
 </body>
 </html>

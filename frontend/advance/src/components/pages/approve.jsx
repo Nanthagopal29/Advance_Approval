@@ -10,6 +10,7 @@ const Approve = () => {
   const [params] = useSearchParams();
   const entrynoFromUrl = params.get("entryno");
   const statusFromUrl = params.get("status");
+  const [isSuccess, setIsSuccess] = useState(false); // New state
   
 
   // Helper to format date to Indian Format (DD-MM-YYYY)
@@ -66,63 +67,59 @@ const Approve = () => {
   };
 
   const handleAction = async () => {
-    if (!popup) return;
+  if (!popup) return;
 
-    setMailing(true); // Start "Processing" state
-    const { request, statusValue } = popup;
-    const emp = employees[request.empid] || {};
-    const now = new Date().toISOString();
+  setMailing(true);
+  const { request, statusValue } = popup;
+  const emp = employees[request.empid] || {};
+  const now = new Date().toISOString();
 
-    const payload = {
-      id: request.entryno,
-      status: statusValue,
-      status_dt: now,
-      name: emp.name || "",
-      dept: emp.dept || "",
-      code: request.empid,
-      amount: request.amt,
-      remarks: request.remarks,
-    };
+  const payload = {
+    id: request.entryno,
+    status: statusValue,
+    status_dt: now,
+    name: emp.name || "",
+    dept: emp.dept || "",
+    code: request.empid,
+    amount: request.amt,
+    remarks: request.remarks,
+  };
+
+  try {
+    const res = await fetch("http://10.1.21.13:8600/ad_approve/", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error("Update failed");
 
     try {
-      // 1. Update Approval Status
-      const res = await fetch("http://10.1.21.13:8600/ad_approve/", {
-        method: "PUT",
+      await fetch("http://10.1.21.13:8600/approve_mail/", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ entryno: request.entryno, status: statusValue }),
       });
-
-      if (!res.ok) {
-        alert("Failed to update status");
-        setMailing(false);
-        return;
-      }
-
-      // 2. Call Mail API (Only if status update was successful)
-      try {
-        await fetch("http://10.1.21.13:8600/approve_mail/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            entryno: request.entryno,
-            status: statusValue,
-          }),
-        });
-      } catch (mailErr) {
-        console.error("Record updated, but mail failed to send", mailErr);
-      }
-
-      // 3. Update Local State
-      setRequests((prev) =>
-        prev.filter((r) => r.entryno !== request.entryno)
-      );
-      setPopup(null); // Close popup on success
-    } catch (err) {
-      alert("Server not reachable");
-    } finally {
-      setMailing(false); // End "Processing" state
+    } catch (mailErr) {
+      console.error("Mail failed", mailErr);
     }
-  };
+
+    // Success Sequence
+    setIsSuccess(true); 
+    setRequests((prev) => prev.filter((r) => r.entryno !== request.entryno));
+    
+    // Optional: Auto-close after 2 seconds
+    setTimeout(() => {
+      setPopup(null);
+      setIsSuccess(false);
+      setMailing(false);
+    }, 2000);
+
+  } catch (err) {
+    alert("Server error");
+    setMailing(false);
+  }
+};
 
   const openPopup = (request, statusValue) => {
     setPopup({ request, statusValue });
@@ -188,7 +185,7 @@ const Approve = () => {
                   <div key={req.entryno} className="grid grid-cols-1 sm:grid-cols-6 gap-4 px-6 py-5 items-center hover:bg-indigo-50/20 transition">
                     <div className="flex sm:block items-center justify-between">
                       <span className="sm:hidden text-[10px] font-bold text-gray-400 uppercase">Entry No</span>
-                      <span className="font-mono text-sm font-bold text-gray-700">#{req.entryno}</span>
+                      <span className="font-mono text-sm font-bold text-gray-700">{req.entryno}</span>
                     </div>
 
                     <div className="flex sm:block items-center justify-between">
@@ -244,53 +241,71 @@ const Approve = () => {
 
       {/* ── Confirmation Modal with Mailing State ── */}
       {popup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl scale-in-center">
-            
-            {/* Dynamic Icon based on mailing status */}
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-              mailing ? "bg-indigo-100 text-indigo-600 animate-pulse" : 
-              isApprove ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-            }`}>
-              {mailing ? (
-                <div className="w-6 h-6 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <span className="text-2xl font-bold">{isApprove ? "✓" : "✕"}</span>
-              )}
-            </div>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl transition-all">
+      
+      {/* ── Dynamic Icon ── */}
+      <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors duration-500 ${
+        isSuccess ? "bg-green-100 text-green-600" :
+        mailing ? "bg-indigo-50 text-indigo-600" : 
+        isApprove ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+      }`}>
+        {isSuccess ? (
+          <svg className="w-10 h-10 animate-[bounce_0.5s_ease-in-out]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : mailing ? (
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <span className="text-3xl font-bold">{isApprove ? "✓" : "✕"}</span>
+        )}
+      </div>
 
-            <h2 className="text-center text-lg font-bold text-gray-800 mb-2">
-              {mailing ? "Processing..." : isApprove ? "Approve Request?" : "Reject Request?"}
-            </h2>
-            
-            <p className="text-center text-sm text-gray-500 mb-6 px-4">
-              {mailing 
-                ? "Sending confirmation email and updating records. Please wait..." 
-                : `Are you sure you want to ${isApprove ? 'approve' : 'reject'} entry #${popup.request.entryno}?`
-              }
-            </p>
+      {/* ── Text Content ── */}
+      <h2 className="text-center text-xl font-black text-gray-900 mb-2">
+        {isSuccess ? "Success!" : mailing ? "Processing..." : isApprove ? "Confirm Approval" : "Confirm Rejection"}
+      </h2>
+      
+      <p className="text-center text-sm text-gray-500 mb-8 leading-relaxed">
+        {isSuccess 
+          ? `The request for #${popup.request.entryno} has been updated and the email was triggered.` 
+          : mailing 
+          ? "We are updating the records and notifying the employee. Please don't close this window." 
+          : `Are you sure you want to ${isApprove ? 'approve' : 'reject'} the request for ${employees[popup.request.empid]?.name || 'this employee'}?`
+        }
+      </p>
 
-            <div className="flex gap-3">
-              <button 
-                disabled={mailing} 
-                onClick={() => setPopup(null)} 
-                className="flex-1 py-3 text-sm font-bold text-gray-400 disabled:opacity-30"
-              >
-                Cancel
-              </button>
-              <button 
-                disabled={mailing}
-                onClick={handleAction} 
-                className={`flex-1 py-3 rounded-xl text-sm font-bold text-white transition-all shadow-md active:scale-95 ${
-                  isApprove ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
-                } disabled:bg-gray-400 disabled:cursor-not-allowed`}
-              >
-                {mailing ? "Sending..." : "Confirm"}
-              </button>
-            </div>
-          </div>
+      {/* ── Action Buttons ── */}
+      {!isSuccess ? (
+        <div className="flex gap-3">
+          <button 
+            disabled={mailing} 
+            onClick={() => setPopup(null)} 
+            className="flex-1 py-3 text-sm font-bold text-gray-400 hover:text-gray-600 transition disabled:opacity-0"
+          >
+            Cancel
+          </button>
+          <button 
+            disabled={mailing}
+            onClick={handleAction} 
+            className={`flex-2 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 ${
+              isApprove ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+            } disabled:bg-gray-300 disabled:shadow-none`}
+          >
+            {mailing ? "Sending..." : "Confirm & Send"}
+          </button>
         </div>
+      ) : (
+        <button 
+          onClick={() => { setPopup(null); setIsSuccess(false); setMailing(false); }}
+          className="w-full py-3 bg-gray-900 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-gray-800 transition"
+        >
+          Done
+        </button>
       )}
+    </div>
+  </div>
+)}
     </div>
   );
 };

@@ -67,10 +67,10 @@ const Login = () => {
     <div className="min-h-screen flex font-sans">
 
       {/* ── LEFT PANEL ── */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-700 via-indigo-700 to-violet-800 flex-col items-center justify-center p-14 relative overflow-hidden">
+      <div className="hidden lg:flex w-1/2 bg-linear-to-br from-blue-700 via-indigo-700 to-violet-800 flex-col items-center justify-center p-14 relative overflow-hidden">
 
-        <div className="absolute w-96 h-96 rounded-full border border-white/10 top-[-60px] left-[-60px]" />
-        <div className="absolute w-72 h-72 rounded-full border border-white/10 bottom-[-40px] right-[-40px]" />
+        <div className="absolute w-96 h-96 rounded-full border border-white/10 top-15 left-15" />
+        <div className="absolute w-72 h-72 rounded-full border border-white/10 bottom-10 right-10" />
         <div className="absolute w-48 h-48 bg-white/5 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 blur-2xl" />
 
         <div className="relative z-10 text-center">
